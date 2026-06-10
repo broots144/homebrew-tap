@@ -1,18 +1,16 @@
 cask "claudeglance" do
-  version "1.1.2"
-  sha256 "79a190c662ece68b66cc14dbc705a34ac14dcc89ee00f8c122045e1443ba7e36"
+  version "1.0.0"
+  sha256 "8f6f28b6bedcb475f6e349c3c0cbb4f686941668c1ce2c298342175866af163c"
 
-  url "https://github.com/broots144/claudeglance/releases/download/v#{version}/ClaudeUsageSystray.dmg"
+  url "https://github.com/broots144/claudeglance/releases/download/v#{version}/ClaudeGlance.dmg"
   name "ClaudeGlance"
   desc "macOS menu bar app showing Claude.ai plan usage in real time"
   homepage "https://github.com/broots144/claudeglance"
 
-  app "ClaudeUsageSystray.app"
+  app "ClaudeGlance.app"
 
   zap trash: [
     "~/Library/Preferences/io.github.broots144.ClaudeGlance.plist",
-    "~/Library/Preferences/com.adntgv.claude-usage-systray.plist",
     "~/Library/Application Support/ClaudeGlance",
-    "~/Library/Application Support/ClaudeUsageSystray",
   ]
 end
