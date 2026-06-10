@@ -1,6 +1,6 @@
 cask "claude-usage-systray" do
   version "1.1.0"
-  sha256 "79f077108e1e691c1c3a8d6ad2aef45493fdf99c135b5f0a4d88e515038629c7"
+  sha256 "09f10b4e010de26f843ab06ecad04cf6bb4be364e770e2aff0a1fd52216094e2"
 
   url "https://github.com/broots144/claude-usage-systray/releases/download/v#{version}/ClaudeUsageSystray.dmg"
   name "Claude Usage Systray"
