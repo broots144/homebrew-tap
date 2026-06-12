@@ -1,6 +1,6 @@
 cask "claudeglance" do
-  version "1.5.6"
-  sha256 "d866f771506baa693dbd8e5dd0c69608e30ba3c06282f5d4aec6dcaabadae0bc"
+  version "1.6.5"
+  sha256 "6f03c3397396a3c9e42d14621b35c053a547787f46efe9448e1aa948dc4d3548"
 
   url "https://github.com/broots144/claudeglance/releases/download/v#{version}/ClaudeGlance.dmg"
   name "ClaudeGlance"
