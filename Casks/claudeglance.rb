@@ -1,6 +1,6 @@
 cask "claudeglance" do
-  version "1.7.1"
-  sha256 "79e296186c8e2304041f3b454973fabda27a549990501e5742e598f23ecb4be0"
+  version "1.7.2"
+  sha256 "56e8ea8d89b28e2007911675e7c61a89d130cb58b8ad2a1a3117c110107d587f"
 
   url "https://github.com/broots144/claudeglance/releases/download/v#{version}/ClaudeGlance.dmg"
   name "ClaudeGlance"
@@ -19,5 +19,6 @@ cask "claudeglance" do
   zap trash: [
     "~/Library/Preferences/io.github.broots144.ClaudeGlance.plist",
     "~/Library/Application Support/ClaudeGlance",
+    "~/.claudeglance",
   ]
 end
