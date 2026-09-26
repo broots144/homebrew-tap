@@ -2,10 +2,10 @@ cask "claudeglance" do
   version "1.7.3"
   sha256 "b994c56d9a1264fc6f0cbd90ccdabf45c296f334b782cf55cc7c2924fdec5744"
 
-  url "https://github.com/broots144/claudeglance/releases/download/v#{version}/ClaudeGlance.dmg"
+  url "https://github.com/workshop144/claudeglance/releases/download/v#{version}/ClaudeGlance.dmg"
   name "ClaudeGlance"
   desc "macOS menu bar app showing Claude.ai plan usage in real time"
-  homepage "https://github.com/broots144/claudeglance"
+  homepage "https://github.com/workshop144/claudeglance"
 
   app "ClaudeGlance.app"
 
