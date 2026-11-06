@@ -34,11 +34,16 @@ t() { # t <name> <function>
   else fail=$((fail+1)); echo "FAIL  $name"; fi
 }
 t_xfail() { # t_xfail <name> <function> <reason>: known bug, must not break the suite
+  # The function calls `reached` just before the assertion that shows the bug.
+  # A failure before that point (broken setup) is a real FAIL, not an xfail.
   local name=$1 fn=$2 reason=$3
-  local rc; (set -e; cd "$(mktemp -d "$WORK/t.XXXX")"; "$fn") >/dev/null; rc=$?
+  local d out rc; d=$(mktemp -d "$WORK/t.XXXX")
+  out=$(set -e; cd "$d"; "$fn" 2>&1); rc=$?
   if [ $rc -eq 0 ]; then xpass=$((xpass+1)); echo "XPASS $name (fixed? drop the xfail: $reason)"
-  else xfail=$((xfail+1)); echo "xfail $name ($reason)"; fi
+  elif [ -e "$d/.reached" ]; then xfail=$((xfail+1)); echo "xfail $name ($reason)"
+  else fail=$((fail+1)); echo "FAIL  $name (failed before the known-bug assertion)"; echo "$out"; fi
 }
+reached() { : > "$XFAIL_DIR/.reached"; }
 
 # ---------- helpers: synthetic git repo ----------
 # new_repo: fresh repo in a new dir with one base commit on `main`, then a
@@ -122,13 +127,13 @@ sg_ci_merge_ref_ignored() {
 sg_merges_only_range_needs_state() {
   # A merge whose only change is its own content (no non-merge commits in range)
   # has nothing to vouch for it, so it must not pass via the escape hatch.
-  new_repo; git checkout -q main; commit "chore: second" x.txt; git checkout -q feature
+  XFAIL_DIR=$PWD; new_repo; git checkout -q main; commit "chore: second" x.txt; git checkout -q feature
   git reset -q --hard main
   echo evil > scripts/evil.sh; git add -A
   local tree head; tree=$(git write-tree)
   head=$(git commit-tree "$tree" -p main -p main~1 -m "Merge branch 'x'")
   git reset -q --hard "$head"
-  guard
+  guard; reached
   check "exit 1" [ $RC -eq 1 ]
 }
 sg_bad_base_fails_loudly() {
@@ -209,6 +214,26 @@ cu_any_bad_cask_fails() {
   run "$SCRIPTS/check-urls.sh" c
   check "exit 1" [ $RC -eq 1 ]; check "names the file" has "no version or url in c/b.rb"
 }
+cu_bad_non_last_cask_fails() {
+  # A 404 on a cask that is not the last one must still fail the check.
+  mkdir -p bin
+  cat > bin/curl <<'EOF2'
+#!/usr/bin/env bash
+case "$*" in *a.dmg*) printf 404;; *) printf 200;; esac
+EOF2
+  chmod +x bin/curl; export PATH="$PWD/bin:$PATH"
+  mk_cask c/a.rb 1.0 'https://example.invalid/a.dmg'
+  mk_cask c/b.rb 1.0 'https://example.invalid/b.dmg'
+  run "$SCRIPTS/check-urls.sh" c
+  check "exit non-zero" [ $RC -ne 0 ]; check "shows 404" has "404 https://example.invalid/a.dmg"
+}
+cu_version_substituted_literally() {
+  # Characters special to sed in the version must not change the URL.
+  fake_curl 200 0
+  mk_cask c/x.rb '1.0&b/c' 'https://example.invalid/#{version}.dmg'
+  run "$SCRIPTS/check-urls.sh" c
+  check "exit 0" [ $RC -eq 0 ]; check "literal version" has '200 https://example.invalid/1.0&b/c.dmg'
+}
 cu_no_casks_fails() {
   fake_curl 200 0; mkdir -p empty
   run "$SCRIPTS/check-urls.sh" empty
@@ -262,6 +287,8 @@ t "check-urls: every #{version} expanded"         cu_expands_every_version_place
 t "check-urls: 404 fails"                         cu_404_fails
 t "check-urls: network failure prints 000"        cu_network_failure_prints_000
 t "check-urls: cask without url fails"            cu_any_bad_cask_fails
+t "check-urls: 404 on non-last cask fails"       cu_bad_non_last_cask_fails
+t "check-urls: version substituted literally"     cu_version_substituted_literally
 t "check-urls: no casks fails"                    cu_no_casks_fails
 t "cask: parses"                                  cask_parses
 t "cask: version matches tag rule"                cask_version_matches_release_tag_rule
