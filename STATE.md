@@ -21,7 +21,7 @@ Last updated: 2026-11-06 by Claude: bumped actions/checkout to v7.0.1 (SHA-pinne
 - `main`: ruleset "main: no force-push or deletion" active; no branch protection or required checks (D-003).
 - The build is ad-hoc signed, so the cask carries a Gatekeeper `caveats` block. release.yml drops it automatically once signing secrets exist.
 - `just check` runs Ruby syntax, DMG URL reachability and the STATE guard. `just style` runs `brew style` and currently reports 5 offenses (see Open).
-- PR guard: `.github/workflows/state-guard.yml` runs `scripts/state-guard.sh` on pull requests only, so bot pushes to `main` are unaffected. It uses `actions/checkout` v7.0.1 pinned by SHA. The chore:/deps: escape hatch ignores merge commits (`--no-merges`), because CI checks out the PR merge ref whose "Merge X into Y" subject would otherwise always fail it.
+- PR guard: `.github/workflows/state-guard.yml` runs `scripts/state-guard.sh` on pull requests only, so bot pushes to `main` are unaffected. It uses `actions/checkout` v7.0.1 pinned by SHA. The chore:/deps: escape hatch ignores merge commits (`--no-merges`), because CI checks out the PR merge ref whose "Merge X into Y" subject would otherwise always fail it. A range with only merge commits gets no escape hatch and needs a STATE.md update.
 
 ## Open / BLOCKED
 
