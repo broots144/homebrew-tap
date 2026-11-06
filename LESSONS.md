@@ -2,6 +2,7 @@
 
 One line per lesson, newest first.
 
+- 2026-11-06: the state-guard chore:/deps: escape hatch failed on its first real PR because Actions checks out the merge ref, adding a "Merge X into Y" commit to the log range. Rule: commit-subject checks in CI use `git log --no-merges`.
 - 2026-11-06: `brew style` was never run on the generated cask and it has 5 offenses. Rule: style fixes go in the release.yml template, and `just style` is the check before tagging.
 - 2026-09-27: a token held in the workshop144 org had no write access to this personal-account repo, so the release job switched to a write deploy key scoped to this repo only. Rule: cross-owner pushes use a per-repo deploy key, never a broad PAT.
 - 2026-09-26: the source repo moved to workshop144 and the old broots144 release URL stopped redirecting, so installs broke until 7ee90bd. Rule: when the app repo moves, update the URL in release.yml and here in the same change.
