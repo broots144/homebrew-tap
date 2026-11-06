@@ -7,7 +7,11 @@ cask "claudeglance" do
   desc "macOS menu bar app showing Claude.ai plan usage in real time"
   homepage "https://github.com/workshop144/claudeglance"
 
+  depends_on macos: :ventura
+
   app "ClaudeGlance.app"
+
+  uninstall quit: "io.github.broots144.ClaudeGlance"
 
   caveats <<~EOS
     ClaudeGlance is ad-hoc signed (not notarized). On first launch macOS
