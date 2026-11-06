@@ -8,7 +8,7 @@ default: check
 check: syntax url guard
 
 syntax:
-    for f in Casks/*.rb; do ruby -c "$f"; done
+    for f in Casks/*.rb; do ruby -c "$f" || exit 1; done
 
 # Every cask's download URL for its current version answers 200
 url:
