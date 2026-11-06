@@ -8,7 +8,7 @@ default: check
 check: syntax url guard
 
 syntax:
-    for f in Casks/*.rb; do ruby -c "$f"; done
+    for f in Casks/*.rb; do ruby -c "$f" || exit 1; done
 
 # Every cask's download URL for its current version answers 200
 url:
@@ -17,7 +17,10 @@ url:
     for f in Casks/*.rb; do
       v=$(sed -nE 's/^ *version "([^"]+)".*/\1/p' "$f")
       u=$(sed -nE 's/^ *url "([^"]+)".*/\1/p' "$f" | sed "s/#{version}/$v/")
-      code=$(curl -sIL -o /dev/null -w '%{http_code}' "$u")
+      # Bounded and retried; a network failure prints 000 and fails, never hangs or exits silently.
+      code=$(curl -sIL --connect-timeout 10 --max-time 60 --retry 3 --retry-all-errors \
+        -o /dev/null -w '%{http_code}' "$u" || true)
+      code=${code:-000}
       echo "$code $u"; [ "$code" = 200 ]
     done
 
