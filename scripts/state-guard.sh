@@ -8,7 +8,7 @@ changed=$(git diff --name-only "$base"...HEAD)
 if echo "$changed" | grep -qx 'STATE.md'; then echo "state-guard: STATE.md updated"; exit 0; fi
 code=$(echo "$changed" | grep -Ev '^(LESSONS\.md|ROADMAP\.md|README\.md|docs/)' || true)
 [ -z "$code" ] && { echo "state-guard: docs-only change"; exit 0; }
-if git log --format=%s "$base"..HEAD | grep -Evq '^(chore|deps)(\(.+\))?!?:|^Update claudeglance to '; then
+if git log --no-merges --format=%s "$base"..HEAD | grep -Evq '^(chore|deps)(\(.+\))?!?:|^Update claudeglance to '; then
   echo "state-guard: these paths changed without a STATE.md update:"
   echo "$code" | sed 's/^/  /'
   echo "Update STATE.md in the same PR, or title every commit chore: / deps:."
