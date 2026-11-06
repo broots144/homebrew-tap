@@ -2,6 +2,7 @@
 
 One line per lesson, newest first.
 
+- 2026-11-06: the first draft of the test harness ran each test as `if (set -e; ...)`, and bash ignores errexit inside an `if` condition, so only the last assertion of a test counted. Rule: run test bodies outside a condition and capture `$?`, and mutation-check a new harness (break the code, see the test fail).
 - 2026-11-06: the state-guard chore:/deps: escape hatch failed on its first real PR because Actions checks out the merge ref, adding a "Merge X into Y" commit to the log range. Rule: commit-subject checks in CI use `git log --no-merges`.
 - 2026-11-06: `brew style` was never run on the generated cask and it has 5 offenses. Rule: style fixes go in the release.yml template, and `just style` is the check before tagging.
 - 2026-09-27: a token held in the workshop144 org had no write access to this personal-account repo, so the release job switched to a write deploy key scoped to this repo only. Rule: cross-owner pushes use a per-repo deploy key, never a broad PAT.
