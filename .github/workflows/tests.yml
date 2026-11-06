@@ -1,0 +1,23 @@
+name: tests
+
+# Offline suite (synthetic repos and casks, curl faked). Runs on PRs and on
+# pushes to main so a broken bot-generated cask shows up; it is not a required
+# check (D-003), so the release job's direct pushes are never blocked.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Offline test suite
+        run: tests/run.sh
