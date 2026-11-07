@@ -13,3 +13,7 @@ The app was rebranded from claude-usage-systray to ClaudeGlance. The old cask wa
 ## D-003 (2026-11-06): no required checks on `main`
 
 Because D-002 pushes directly to `main`, `main` only blocks force-push and deletion. The STATE guard runs on pull requests, not as a required check on pushes.
+
+## D-004 (2026-11-07): accept the write deploy key's reach; alert after, rotate yearly
+
+Whoever holds `HOMEBREW_TAP_DEPLOY_KEY` can push any file to `main` (D-002, D-003), including a cask with a new `url` and `sha256` or a changed workflow, and the next `brew upgrade` installs it. Nothing on this side can block that push: GitHub push rulesets (path restrictions) exist only for organization-owned repositories, and this tap is on a personal account; required checks or PR-only rules would also block the release job. Accepted because the key lives only in a `permissions: {}` job in workshop144/claudeglance that shares no runner with the build. Mitigations: the `tests` workflow runs on every push to `main` and fails on a non-workshop144 URL, and its `alert` job opens an issue on that failure so the owner is notified even if Actions emails are off (it cannot catch a push that also rewrites the workflow). The key is rotated at least yearly; next rotation due by 2027-09-27 (created 2026-09-27). On a suspicious bot commit: revert it, delete the deploy key, and issue a new one.

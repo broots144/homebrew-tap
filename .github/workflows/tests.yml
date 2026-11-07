@@ -21,3 +21,26 @@ jobs:
           persist-credentials: false
       - name: Offline test suite
         run: tests/run.sh
+
+  # Alert for a bad push to main (D-004). A deploy-key push that points the cask
+  # at a non-workshop144 URL fails `tests` above; this opens an issue so the
+  # owner is notified even if Actions failure emails are off. It cannot block
+  # the push (D-003). Only this job can write issues; it runs no repo code.
+  alert:
+    needs: tests
+    if: failure() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open an issue for the failed push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create \
+            --title "tests failed on main at ${SHA:0:7}" \
+            --body "The \`tests\` workflow failed on a push to \`main\` (commit $SHA, actor $ACTOR). If the cask URL or sha256 changed unexpectedly, treat the deploy key as compromised: revert the commit, delete the deploy key and rotate it (see D-004). Run: $RUN_URL"
