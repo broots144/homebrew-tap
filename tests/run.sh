@@ -127,13 +127,13 @@ sg_ci_merge_ref_ignored() {
 sg_merges_only_range_needs_state() {
   # A merge whose only change is its own content (no non-merge commits in range)
   # has nothing to vouch for it, so it must not pass via the escape hatch.
-  XFAIL_DIR=$PWD; new_repo; git checkout -q main; commit "chore: second" x.txt; git checkout -q feature
+  new_repo; git checkout -q main; commit "chore: second" x.txt; git checkout -q feature
   git reset -q --hard main
   echo evil > scripts/evil.sh; git add -A
   local tree head; tree=$(git write-tree)
   head=$(git commit-tree "$tree" -p main -p main~1 -m "Merge branch 'x'")
   git reset -q --hard "$head"
-  guard; reached
+  guard
   check "exit 1" [ $RC -eq 1 ]
 }
 sg_bad_base_fails_loudly() {
@@ -311,8 +311,7 @@ t "state-guard: bot bump escape"                  sg_escape_hatch_bot_bump
 t "state-guard: escape needs every commit"        sg_escape_hatch_needs_every_commit
 t "state-guard: lookalike subjects rejected"      sg_escape_hatch_rejects_lookalikes
 t "state-guard: CI merge ref ignored"             sg_ci_merge_ref_ignored
-t_xfail "state-guard: merges-only range needs STATE" sg_merges_only_range_needs_state \
-  "known bug, fix in open PR #3 (empty --no-merges log passes the escape hatch)"
+t "state-guard: merges-only range needs STATE"   sg_merges_only_range_needs_state
 t "state-guard: unknown base fails"               sg_bad_base_fails_loudly
 t "state-guard: default base origin/main"         sg_default_base_is_origin_main
 t "check-syntax: valid cask"                      cs_ok
