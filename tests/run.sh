@@ -263,6 +263,42 @@ cask_quit_id_matches_zap_plist() {
 cask_requires_ventura() { check "depends_on macos" grep -Eq '^ *depends_on macos: :ventura' "$CASK"; }
 cask_token_matches_filename() { check "token" grep -q '^cask "claudeglance" do' "$CASK"; }
 
+# ---------- workflow and security invariants (static, offline) ----------
+WF=$ROOT/.github/workflows
+wf_actions_pinned_by_sha() {
+  # Every `uses:` is a full 40-hex commit SHA, never a tag or branch.
+  local bad; bad=$(grep -hE '^ *(- )?uses:' "$WF"/*.yml | grep -Ev 'uses: [^@ ]+@[0-9a-f]{40}( |$)' || true)
+  OUT=$bad; check "unpinned uses" [ -z "$bad" ]
+}
+wf_top_level_permissions_read_only() {
+  local f; for f in "$WF"/*.yml; do
+    OUT=$f; check "top-level permissions contents: read" [ "$(grep -A1 '^permissions:' "$f" | tail -1)" = "  contents: read" ]
+  done
+}
+wf_checkout_no_persisted_credentials() {
+  local f n m; for f in "$WF"/*.yml; do
+    n=$(grep -c 'uses: actions/checkout@' "$f" || true); m=$(grep -c 'persist-credentials: false' "$f" || true)
+    OUT=$f; check "persist-credentials false on every checkout" [ "$n" -eq "$m" ]
+  done
+}
+wf_push_failure_opens_issue() {
+  # D-004: a failed push to main must alert the owner; only the alert job writes issues.
+  local f=$WF/tests.yml
+  OUT=$(cat "$f")
+  check "runs on push to main" [ "$(grep -A1 '^  push:' "$f" | tail -1)" = "    branches: [main]" ]
+  check "alert job on failed push" grep -Fq "if: failure() && github.event_name == 'push'" "$f"
+  check "issues: write only once" [ "$(grep -c 'issues: write' "$f")" -eq 1 ]
+  check "no write scopes elsewhere" [ "$(grep -hE '^ +[a-z-]+: write' "$WF"/*.yml | grep -vc 'issues: write')" -eq 0 ]
+}
+state_documents_deploy_key_risk() {
+  # L2 accepted risk stays documented, with the rotation deadline.
+  local s=$ROOT/STATE.md; OUT=$(cat "$s")
+  check "accepted risk section" grep -q '^## Security' "$s"
+  check "deploy key risk cites D-002" grep -Eq 'Accepted risk.*D-002' "$s"
+  check "rotation deadline" grep -q '2027-09-27' "$s"
+  check "decision recorded" grep -q '^## D-004' "$ROOT/docs/DECISIONS.md"
+}
+
 # ---------- run ----------
 t "state-guard: no changes"                       sg_no_changes
 t "state-guard: STATE.md updated passes"          sg_state_updated
@@ -297,6 +333,11 @@ t "cask: url is workshop144 release"              cask_url_points_at_workshop144
 t "cask: quit id matches zap plist"               cask_quit_id_matches_zap_plist
 t "cask: depends_on macos ventura"                cask_requires_ventura
 t "cask: token matches file"                      cask_token_matches_filename
+t "workflows: actions pinned by SHA"              wf_actions_pinned_by_sha
+t "workflows: top-level permissions read-only"    wf_top_level_permissions_read_only
+t "workflows: checkout without credentials"       wf_checkout_no_persisted_credentials
+t "workflows: failed push opens an issue"         wf_push_failure_opens_issue
+t "security: deploy key risk documented"          state_documents_deploy_key_risk
 
 echo
 echo "$pass passed, $fail failed, $xfail xfailed, $xpass xpassed"
