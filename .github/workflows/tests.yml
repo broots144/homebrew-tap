@@ -21,13 +21,35 @@ jobs:
           persist-credentials: false
       - name: Offline test suite
         run: tests/run.sh
+      - name: Cask matches the release template
+        run: scripts/check-cask-template.sh
 
-  # Alert for a bad push to main (D-004). A deploy-key push that points the cask
-  # at a non-workshop144 URL fails `tests` above; this opens an issue so the
+  # Every commit a push adds to main must be a PR merged on GitHub (verified,
+  # committed by web-flow) or a well-formed release bot bump that touches only
+  # the cask and raises its version (D-005). Read-only; a failure alerts below.
+  push-audit:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Audit pushed commits
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: scripts/audit-push.sh "$BEFORE" "$AFTER"
+
+  # Alert for a bad push to main (D-004, D-005). A deploy-key push whose cask
+  # leaves the release template, or any commit that is neither a GitHub-merged
+  # PR nor a clean bot bump, fails a job above; this opens an issue so the
   # owner is notified even if Actions failure emails are off. It cannot block
   # the push (D-003). Only this job can write issues; it runs no repo code.
   alert:
-    needs: tests
+    needs: [tests, push-audit]
     if: failure() && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:

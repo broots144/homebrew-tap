@@ -4,11 +4,15 @@ brew := `command -v brew || echo /opt/homebrew/bin/brew`
 
 default: check
 
-# Syntax, download URL, STATE guard, offline test suite
-check: syntax url guard test
+# Syntax, release template, download URL, STATE guard, offline test suite
+check: syntax template url guard test
 
 syntax:
     scripts/check-syntax.sh
+
+# The cask is exactly the release template with a version and sha256 filled in (D-005)
+template:
+    scripts/check-cask-template.sh
 
 # Every cask's download URL for its current version answers 200
 url:

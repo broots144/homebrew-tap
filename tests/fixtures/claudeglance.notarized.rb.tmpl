@@ -1,0 +1,21 @@
+cask "claudeglance" do
+  version "@VERSION@"
+  sha256 "@SHA256@"
+
+  url "https://github.com/workshop144/claudeglance/releases/download/v#{version}/ClaudeGlance.dmg"
+  name "ClaudeGlance"
+  desc "macOS menu bar app showing Claude.ai plan usage in real time"
+  homepage "https://github.com/workshop144/claudeglance"
+
+  depends_on macos: :ventura
+
+  app "ClaudeGlance.app"
+
+  uninstall quit: "io.github.broots144.ClaudeGlance"
+
+  zap trash: [
+    "~/Library/Preferences/io.github.broots144.ClaudeGlance.plist",
+    "~/Library/Application Support/ClaudeGlance",
+    "~/.claudeglance",
+  ]
+end

@@ -241,6 +241,121 @@ cu_no_casks_fails() {
   check "curl never called" [ ! -e curl.log ]
 }
 
+# ---------- check-cask-template.sh ----------
+FIXTURES=$ROOT/tests/fixtures
+SHA64=b11a08950ceb8a27b914326d0bb41c45d2c73beab7a710ec6a1ad3f114a16fe7
+render() { # render <variant> <version> [sha]: a cask as the release job would write it
+  sed -e "s/@VERSION@/$2/" -e "s/@SHA256@/${3:-$SHA64}/" "$FIXTURES/claudeglance.$1.rb.tmpl"
+}
+ctpl() { run "$SCRIPTS/check-cask-template.sh" c.rb "$FIXTURES"; }
+ct_adhoc_ok() { render adhoc 1.2.3 > c.rb; ctpl; check "exit 0" [ $RC -eq 0 ]; check "names template" has "adhoc"; }
+ct_notarized_ok() { render notarized 2.0.0.1 > c.rb; ctpl; check "exit 0" [ $RC -eq 0 ]; check "names template" has "notarized"; }
+ct_url_substring_trick_fails() {
+  # The review's proof of concept: the real URL as a query string of another host.
+  render adhoc 1.2.3 | sed 's|  url "https://github.com|  url "https://evil.example/x?https://github.com|' > c.rb; ctpl
+  check "exit 1" [ $RC -eq 1 ]; check "reason" has "not exactly the workshop144 release URL"
+}
+ct_postflight_fails() {
+  { render adhoc 1.2.3 | sed '$d'; printf '  postflight do\n    puts 1\n  end\nend\n'; } > c.rb; ctpl
+  check "exit 1" [ $RC -eq 1 ]; check "reason" has "code-running stanza"
+}
+ct_shellouts_fail() {
+  local l; for l in '  preflight do; end' '  x = `id`' '  x = %x(id)' '  system "id"' '  system_command "/bin/id"' '  installer script: "x"'; do
+    { render adhoc 1.2.3 | sed '$d'; printf '%s\nend\n' "$l"; } > c.rb; ctpl
+    check "'$l' rejected" [ $RC -eq 1 ]
+  done
+}
+ct_extra_stanza_fails() {
+  { render adhoc 1.2.3 | sed '$d'; printf '  depends_on formula: "wget"\nend\n'; } > c.rb; ctpl
+  check "exit 1" [ $RC -eq 1 ]; check "says no template" has "matches no template"
+}
+ct_changed_field_fails() {
+  render adhoc 1.2.3 | sed 's|app "ClaudeGlance.app"|app "Other.app"|' > c.rb; ctpl; check "app changed" [ $RC -eq 1 ]
+}
+ct_bad_fill_ins_fail() {
+  render adhoc '1.2.3-evil' > c.rb; ctpl; check "bad version" [ $RC -eq 1 ]
+  render adhoc 1.2.3 "${SHA64:0:63}" > c.rb; ctpl; check "short sha" [ $RC -eq 1 ]
+  render adhoc 1.2.3 "$(tr a-f A-F <<<"$SHA64")" > c.rb; ctpl; check "upper-case sha" [ $RC -eq 1 ]
+}
+ct_missing_cask_fails() { ctpl; check "exit 1" [ $RC -eq 1 ]; }
+
+# ---------- audit-push.sh (gh faked) ----------
+fake_gh() { # verified shas listed in ./verified; ./gh_fail makes every call fail
+  mkdir -p bin
+  cat > bin/gh <<GHEOF
+#!/usr/bin/env bash
+[ -e "$PWD/gh_fail" ] && { echo "HTTP 502" >&2; exit 1; }
+sha=\${2##*/}
+if grep -qx "\$sha" "$PWD/verified" 2>/dev/null; then printf 'true\tweb-flow\n'; else printf 'false\t\n'; fi
+GHEOF
+  chmod +x bin/gh; export PATH="$PWD/bin:$PATH" GH_REPO=test/tap
+}
+cask_repo() { # cask_repo <version>: repo on main with the cask at <version>; base sha in $BASE
+  AP_TOP=$PWD; fake_gh
+  local d; d=$(mktemp -d "$WORK/repo.XXXX"); cd "$d"; git init -q -b main .
+  mkdir -p Casks scripts; render adhoc "$1" > Casks/claudeglance.rb; echo s > STATE.md
+  git add -A; git commit -qm init; BASE=$(git rev-parse HEAD)
+}
+bump() { # bump <version> [subject]: bot-style commit of the cask at <version>
+  render adhoc "$1" > Casks/claudeglance.rb; git add -A; git commit -qm "${2:-Update claudeglance to $1}"
+}
+verify_head() { git rev-parse HEAD >> "$AP_TOP/verified"; }
+audit() { run "$SCRIPTS/audit-push.sh" "$BASE" HEAD; }
+ap_bot_bumps_pass() {
+  cask_repo 1.9; bump 1.9.1; bump 1.10; audit
+  check "exit 0" [ $RC -eq 0 ]; check "1.10 > 1.9.1 (sort -V)" has "bot bump to 1.10"
+}
+ap_github_merge_passes() {
+  cask_repo 1.0; commit "feat: x" scripts/a.sh; verify_head; audit
+  check "exit 0" [ $RC -eq 0 ]; check "message" has "merged on GitHub"
+}
+ap_unverified_commit_fails() {
+  cask_repo 1.0; commit "feat: x" scripts/a.sh; audit
+  check "exit 1" [ $RC -eq 1 ]; check "reason" has "not a PR merged on GitHub and not a bot bump"
+}
+ap_bot_touching_other_files_fails() {
+  # The finding: a bot-titled push that also edits tests/run.sh or a workflow.
+  cask_repo 1.0; render adhoc 1.1 > Casks/claudeglance.rb; mkdir -p tests; echo x > tests/run.sh
+  git add -A; git commit -qm "Update claudeglance to 1.1"; audit
+  check "exit 1" [ $RC -eq 1 ]; check "reason" has "touches more than Casks/claudeglance.rb"
+}
+ap_bot_lowering_version_fails() {
+  cask_repo 1.8.2; bump 1.8.1; audit
+  check "exit 1" [ $RC -eq 1 ]; check "reason" has "version goes from 1.8.2 to 1.8.1"
+}
+ap_bot_same_version_fails() {
+  cask_repo 1.8.2; render adhoc 1.8.2 "$(printf '%064d' 0)" > Casks/claudeglance.rb
+  git add -A; git commit -qm "Update claudeglance to 1.8.2"; audit
+  check "exit 1" [ $RC -eq 1 ]; check "reason" has "must increase"
+}
+ap_bot_subject_mismatch_fails() {
+  cask_repo 1.0; bump 1.2 "Update claudeglance to 1.1"; audit
+  check "exit 1" [ $RC -eq 1 ]; check "reason" has "subject says 1.1 but the cask says 1.2"
+}
+ap_unverified_merge_commit_fails() {
+  cask_repo 1.0; git checkout -qb side; bump 1.1; git checkout -q main
+  commit "other: main moved" other.txt; verify_head
+  git merge -q --no-ff -m "Update claudeglance to 1.1" side; audit
+  check "exit 1" [ $RC -eq 1 ]; check "reason" has "merge commit"
+}
+ap_one_bad_commit_among_good_fails() {
+  cask_repo 1.0; bump 1.1; commit "fix: sneak" scripts/a.sh; bump 1.2; audit
+  check "exit 1" [ $RC -eq 1 ]; check "names the bad one" has "fix: sneak"
+  check "still reports the good ones" has "bot bump to 1.2"
+}
+ap_api_failure_fails_closed() {
+  cask_repo 1.0; bump 1.1; : > "$AP_TOP/gh_fail"; audit
+  check "exit 1" [ $RC -eq 1 ]; check "reason" has "GitHub API lookup failed"
+}
+ap_zero_before_audits_head() {
+  cask_repo 1.0; commit "feat: x" scripts/a.sh
+  run "$SCRIPTS/audit-push.sh" 0000000000000000000000000000000000000000 HEAD
+  check "exit 1" [ $RC -eq 1 ]; check "audited head" has "feat: x"
+}
+ap_needs_repo_name() {
+  cask_repo 1.0; bump 1.1; unset GH_REPO; audit; check "exit non-zero" [ $RC -ne 0 ]
+}
+
 # ---------- the real cask (static, offline) ----------
 CASK=$ROOT/Casks/claudeglance.rb
 field() { sed -nE "s/^ *$1 \"([^\"]+)\".*/\1/p" "$CASK"; }
@@ -251,9 +366,11 @@ cask_version_matches_release_tag_rule() {
 }
 cask_sha256_is_hex64() { check "sha256" grep -Eq '^[0-9a-f]{64}$' <<<"$(field sha256)"; }
 cask_url_points_at_workshop144_release() {
+  # Exact match: a substring check let "https://evil.example/x?https://github.com/..." through.
   local u; u=$(field url)
-  check "versioned release URL" grep -Fq 'https://github.com/workshop144/claudeglance/releases/download/v#{version}/' <<<"$u"
+  check "exact release URL" [ "$u" = 'https://github.com/workshop144/claudeglance/releases/download/v#{version}/ClaudeGlance.dmg' ]
 }
+cask_matches_release_template() { run "$SCRIPTS/check-cask-template.sh" "$CASK" "$FIXTURES"; check "matches" [ $RC -eq 0 ]; }
 cask_quit_id_matches_zap_plist() {
   # uninstall quit: must stop the same bundle id whose prefs zap removes.
   local id; id=$(sed -nE 's/^ *uninstall quit: "([^"]+)".*/\1/p' "$CASK")
@@ -288,6 +405,8 @@ wf_push_failure_opens_issue() {
   check "runs on push to main" [ "$(grep -A1 '^  push:' "$f" | tail -1)" = "    branches: [main]" ]
   check "alert job on failed push" grep -Fq "if: failure() && github.event_name == 'push'" "$f"
   check "issues: write only once" [ "$(grep -c 'issues: write' "$f")" -eq 1 ]
+  check "push-audit job runs the audit" grep -Fq "scripts/audit-push.sh" "$f"
+  check "alert waits for push-audit" grep -Fq "needs: [tests, push-audit]" "$f"
   check "no write scopes elsewhere" [ "$(grep -hE '^ +[a-z-]+: write' "$WF"/*.yml | grep -vc 'issues: write')" -eq 0 ]
 }
 state_documents_deploy_key_risk() {
@@ -325,10 +444,32 @@ t "check-urls: cask without url fails"            cu_any_bad_cask_fails
 t "check-urls: 404 on non-last cask fails"       cu_bad_non_last_cask_fails
 t "check-urls: version substituted literally"     cu_version_substituted_literally
 t "check-urls: no casks fails"                    cu_no_casks_fails
+t "cask-template: ad-hoc variant passes"          ct_adhoc_ok
+t "cask-template: notarized variant passes"       ct_notarized_ok
+t "cask-template: URL substring trick fails"      ct_url_substring_trick_fails
+t "cask-template: postflight fails"               ct_postflight_fails
+t "cask-template: shell-outs fail"                ct_shellouts_fail
+t "cask-template: extra stanza fails"             ct_extra_stanza_fails
+t "cask-template: changed field fails"            ct_changed_field_fails
+t "cask-template: bad version/sha fill-ins fail"  ct_bad_fill_ins_fail
+t "cask-template: missing cask fails"             ct_missing_cask_fails
+t "audit-push: bot bumps pass (sort -V)"          ap_bot_bumps_pass
+t "audit-push: GitHub-merged commit passes"       ap_github_merge_passes
+t "audit-push: unverified commit fails"           ap_unverified_commit_fails
+t "audit-push: bot touching other files fails"    ap_bot_touching_other_files_fails
+t "audit-push: lowered version fails"             ap_bot_lowering_version_fails
+t "audit-push: same version fails"                ap_bot_same_version_fails
+t "audit-push: subject/cask mismatch fails"       ap_bot_subject_mismatch_fails
+t "audit-push: unverified merge commit fails"     ap_unverified_merge_commit_fails
+t "audit-push: one bad commit fails the push"     ap_one_bad_commit_among_good_fails
+t "audit-push: API failure fails closed"          ap_api_failure_fails_closed
+t "audit-push: zero before audits head"           ap_zero_before_audits_head
+t "audit-push: GH_REPO required"                  ap_needs_repo_name
 t "cask: parses"                                  cask_parses
 t "cask: version matches tag rule"                cask_version_matches_release_tag_rule
 t "cask: sha256 is 64 hex"                        cask_sha256_is_hex64
-t "cask: url is workshop144 release"              cask_url_points_at_workshop144_release
+t "cask: url is exactly the workshop144 release"  cask_url_points_at_workshop144_release
+t "cask: matches the release template"            cask_matches_release_template
 t "cask: quit id matches zap plist"               cask_quit_id_matches_zap_plist
 t "cask: depends_on macos ventura"                cask_requires_ventura
 t "cask: token matches file"                      cask_token_matches_filename
