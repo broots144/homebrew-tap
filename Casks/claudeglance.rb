@@ -1,6 +1,6 @@
 cask "claudeglance" do
-  version "1.8.3"
-  sha256 "6b66272bb245b3c98bf961879666fc9746c396aa3115d5ceabbcd6252147a910"
+  version "1.8.4"
+  sha256 "228913f87374a4a0f68b2d99162fe64d7e022a7b1c2dd8fcb4406a6fa03b17da"
 
   url "https://github.com/workshop144/claudeglance/releases/download/v#{version}/ClaudeGlance.dmg"
   name "ClaudeGlance"
@@ -12,13 +12,6 @@ cask "claudeglance" do
   app "ClaudeGlance.app"
 
   uninstall quit: "io.github.broots144.ClaudeGlance"
-
-  caveats <<~EOS
-    ClaudeGlance is ad-hoc signed (not notarized). On first launch macOS
-    may block it. Right-click the app in /Applications and choose Open,
-    or run:
-      xattr -dr com.apple.quarantine /Applications/ClaudeGlance.app
-  EOS
 
   zap trash: [
     "~/Library/Preferences/io.github.broots144.ClaudeGlance.plist",
