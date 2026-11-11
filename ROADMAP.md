@@ -10,4 +10,4 @@ Status detail lives in STATE.md.
 | P3 | URL moved to workshop144/claudeglance | ✅ | DMG URL returns 200 |
 | P4 | Repo-state pattern retrofit | ✅ | `just verify-phase-4` |
 | P5 | Cask passes `brew style` | ⬜ | template fix in claudeglance release.yml, then `just verify-phase-5` |
-| P6 | Notarized build, no Gatekeeper caveat | ⏸ | needs Apple Developer ID signing secrets |
+| P6 | Notarized build, no Gatekeeper caveat | ✅ | 1.8.4 cask (7897025) has no caveats; 1.9.x adds `auto_updates true` |

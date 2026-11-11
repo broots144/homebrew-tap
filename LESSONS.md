@@ -2,6 +2,7 @@
 
 One line per lesson, newest first.
 
+- 2026-11-10: claudeglance PR #37 added `auto_updates` to the release.yml cask template, but the fixtures here were not updated first, so the genuine 1.9.0 and 1.9.1 bot bumps failed the template check and opened alerts #10 and #11 (CI red on `main` for both). Rule: a change to the `FORMULA` in claudeglance release.yml ships with a tap PR that re-renders `tests/fixtures/*.rb.tmpl` from it, merged before the next tag.
 - 2026-11-07: the D-004 alert checked the cask URL with `grep -F`, a substring match, so a URL on another host carrying the real URL as a query string passed, and no test looked at the other stanzas. Rule: a security check compares against an exact expected value or a full template, and its regression test is the attack itself (the proof of concept from the review).
 - 2026-11-06: replacing sed with `${u//'#{version}'/"$v"}` worked on bash 5 but left literal quotes in the URL on macOS /bin/bash 3.2. Rule: in scripts that may run under either bash, keep the replacement unquoted and `shopt -u patsub_replacement`, and run the tests under /bin/bash too.
 - 2026-11-06: the first draft of the test harness ran each test as `if (set -e; ...)`, and bash ignores errexit inside an `if` condition, so only the last assertion of a test counted. Rule: run test bodies outside a condition and capture `$?`, and mutation-check a new harness (break the code, see the test fail).
