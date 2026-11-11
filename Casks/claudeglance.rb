@@ -1,6 +1,6 @@
 cask "claudeglance" do
-  version "1.8.4"
-  sha256 "228913f87374a4a0f68b2d99162fe64d7e022a7b1c2dd8fcb4406a6fa03b17da"
+  version "1.9.0"
+  sha256 "14999c44d29a1d4f0172f5ed18e572f3f3ad27c4953b09a50c3fbf0ff9915463"
 
   url "https://github.com/workshop144/claudeglance/releases/download/v#{version}/ClaudeGlance.dmg"
   name "ClaudeGlance"
@@ -8,6 +8,7 @@ cask "claudeglance" do
   homepage "https://github.com/workshop144/claudeglance"
 
   depends_on macos: :ventura
+  auto_updates true
 
   app "ClaudeGlance.app"
 
