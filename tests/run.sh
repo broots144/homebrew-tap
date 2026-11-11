@@ -278,6 +278,15 @@ ct_bad_fill_ins_fail() {
   render adhoc 1.2.3 "$(tr a-f A-F <<<"$SHA64")" > c.rb; ctpl; check "upper-case sha" [ $RC -eq 1 ]
 }
 ct_missing_cask_fails() { ctpl; check "exit 1" [ $RC -eq 1 ]; }
+ct_auto_updates_pairing() {
+  # Sparkle (claudeglance D-011): only the notarized cask says auto_updates true; the
+  # ad-hoc one has no feed, so it says false and keeps the Gatekeeper caveat.
+  render notarized 1.9.1 | sed '/^  auto_updates true$/d' > c.rb; ctpl; check "notarized without auto_updates" [ $RC -eq 1 ]
+  render notarized 1.9.1 | sed 's/^  auto_updates true$/  auto_updates false/' > c.rb; ctpl; check "notarized with false" [ $RC -eq 1 ]
+  render adhoc 1.9.1 | sed 's/^  auto_updates false$/  auto_updates true/' > c.rb; ctpl; check "ad-hoc with true" [ $RC -eq 1 ]
+  check "adhoc fixture says false" grep -qx '  auto_updates false' "$FIXTURES/claudeglance.adhoc.rb.tmpl"
+  check "notarized fixture says true" grep -qx '  auto_updates true' "$FIXTURES/claudeglance.notarized.rb.tmpl"
+}
 
 # ---------- audit-push.sh (gh faked) ----------
 fake_gh() { # verified shas listed in ./verified; ./gh_fail makes every call fail
@@ -453,6 +462,7 @@ t "cask-template: extra stanza fails"             ct_extra_stanza_fails
 t "cask-template: changed field fails"            ct_changed_field_fails
 t "cask-template: bad version/sha fill-ins fail"  ct_bad_fill_ins_fail
 t "cask-template: missing cask fails"             ct_missing_cask_fails
+t "cask-template: auto_updates matches signing"  ct_auto_updates_pairing
 t "audit-push: bot bumps pass (sort -V)"          ap_bot_bumps_pass
 t "audit-push: GitHub-merged commit passes"       ap_github_merge_passes
 t "audit-push: unverified commit fails"           ap_unverified_commit_fails
