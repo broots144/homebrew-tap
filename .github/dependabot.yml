@@ -1,0 +1,18 @@
+# Dependabot (ADR-089 in workshop144/sublevel): weekly; one PR for minor+patch and one for majors.
+# A release must be 3 days old. Keeps the SHA-pinned actions current; the chore(deps) prefix is a
+# state-guard exemption (scripts/state-guard.sh).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 3
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      actions:
+        update-types: [minor, patch]
+      actions-majors:
+        update-types: [major]

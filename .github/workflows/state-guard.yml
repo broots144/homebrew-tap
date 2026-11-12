@@ -15,4 +15,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: STATE.md updated with code changes
-        run: scripts/state-guard.sh "origin/${{ github.base_ref }}"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: scripts/state-guard.sh "origin/$BASE_REF"
