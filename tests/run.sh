@@ -104,6 +104,12 @@ sg_escape_hatch_bot_bump() {
   new_repo; commit "Update claudeglance to 9.9.9" Casks/a.rb; guard
   check "exit 0" [ $RC -eq 0 ]
 }
+sg_escape_hatch_formula_bump() {
+  new_repo; commit "Update audiobook-fetch to 9.9.9" Formula/a.rb; guard
+  check "exit 0" [ $RC -eq 0 ]
+  new_repo; commit "Update something-else to 9.9.9" Formula/a.rb; guard
+  check "an unknown name gets no escape" [ $RC -eq 1 ]
+}
 sg_escape_hatch_needs_every_commit() {
   new_repo; commit "chore: tidy" scripts/a.sh; commit "feat: sneak" scripts/b.sh; guard
   check "exit 1" [ $RC -eq 1 ]
@@ -194,6 +200,14 @@ cu_expands_every_version_placeholder() {
   mk_cask c/x.rb 2.0 'https://example.invalid/v#{version}/X-#{version}.dmg'
   run "$SCRIPTS/check-urls.sh" c
   check "both placeholders expanded" has "200 https://example.invalid/v2.0/X-2.0.dmg"
+}
+cu_formula_checks_every_url() {
+  fake_curl 200 0
+  mkdir -p f; render_formula 0.1.0 > f/audiobook-fetch.rb
+  run "$SCRIPTS/check-urls.sh" f
+  check "exit 0" [ $RC -eq 0 ]
+  check "four URLs asked for" [ "$(wc -l < curl.log | tr -d ' ')" -eq 4 ]
+  check "version expanded twice" has "200 https://github.com/broots144/audiobook-fetch/releases/download/v0.1.0/audiobook-fetch_0.1.0_linux_amd64.tar.gz"
 }
 cu_404_fails() {
   fake_curl 404 0
@@ -288,6 +302,43 @@ ct_auto_updates_pairing() {
   check "notarized fixture says true" grep -qx '  auto_updates true' "$FIXTURES/claudeglance.notarized.rb.tmpl"
 }
 
+# ---------- check-formula-template.sh ----------
+SHA64B=0c83ddf1b4cfc9ea1a66bcf4626e244cc08dda190c83ddf1b4cfc9ea1a66bcf4
+render_formula() { # render_formula <version> [sha]: the formula as the release job would write it
+  sed -e "s/@VERSION@/$1/" -e "s/@SHA256@/${2:-$SHA64B}/" "$FIXTURES/audiobook-fetch.rb.tmpl"
+}
+ftpl() { run "$SCRIPTS/check-formula-template.sh" f.rb "$FIXTURES"; }
+ft_ok() { render_formula 0.1.0 > f.rb; ftpl; check "exit 0" [ $RC -eq 0 ]; check "names template" has "matches audiobook-fetch.rb.tmpl"; }
+ft_parses() { render_formula 0.1.0 > f.rb; run ruby -c f.rb; check "Syntax OK" has "Syntax OK"; }
+ft_missing_formula_passes() { ftpl; check "exit 0" [ $RC -eq 0 ]; check "says so" has "nothing to check"; }
+ft_changed_url_fails() {
+  render_formula 0.1.0 | sed 's|https://github.com/broots144/audiobook-fetch/releases|https://evil.example/x?https://github.com/broots144/audiobook-fetch/releases|' > f.rb; ftpl
+  check "exit 1" [ $RC -eq 1 ]; check "reason" has "does not match"
+  # Portable "first match only": GNU sed's 0,/re/ form does nothing on macOS.
+  render_formula 0.1.0 | awk '!done && sub(/darwin_arm64/, "linux_amd64") { done = 1 } { print }' > f.rb; ftpl
+  check "platforms swapped" [ $RC -eq 1 ]
+}
+ft_shellouts_fail() {
+  local l; for l in '    system "id"' '    x = `id`' '    x = %x(id)' '    exec "id"' '    Kernel.puts 1'; do
+    render_formula 0.1.0 | sed "s|    bin.install \"audiobook-fetch\"|    bin.install \"audiobook-fetch\"\n$l|" > f.rb; ftpl
+    check "'$l' rejected" [ $RC -eq 1 ]; check "reason" has "code-running hook or shell-out"
+  done
+  { render_formula 0.1.0 | sed '$d'; printf '  def post_install\n    puts 1\n  end\nend\n'; } > f.rb; ftpl
+  check "post_install rejected" [ $RC -eq 1 ]
+}
+ft_extra_or_changed_lines_fail() {
+  { render_formula 0.1.0 | sed '$d'; printf '  depends_on "wget"\nend\n'; } > f.rb; ftpl; check "extra dependency" [ $RC -eq 1 ]
+  render_formula 0.1.0 | sed 's|bin.install "audiobook-fetch"|bin.install "other"|' > f.rb; ftpl; check "another binary" [ $RC -eq 1 ]
+}
+ft_bad_fill_ins_fail() {
+  render_formula '0.1.0-evil' > f.rb; ftpl; check "bad version" [ $RC -eq 1 ]
+  render_formula 0.1.0 "${SHA64B:0:63}" > f.rb; ftpl; check "short sha" [ $RC -eq 1 ]
+  render_formula 0.1.0 "$(tr a-f A-F <<<"$SHA64B")" > f.rb; ftpl; check "upper-case sha" [ $RC -eq 1 ]
+}
+ft_real_formula_matches() { # once a release has pushed one
+  run "$SCRIPTS/check-formula-template.sh" "$ROOT/Formula/audiobook-fetch.rb" "$FIXTURES"; check "matches or absent" [ $RC -eq 0 ]
+}
+
 # ---------- audit-push.sh (gh faked) ----------
 fake_gh() { # verified shas listed in ./verified; ./gh_fail makes every call fail
   mkdir -p bin
@@ -308,11 +359,41 @@ cask_repo() { # cask_repo <version>: repo on main with the cask at <version>; ba
 bump() { # bump <version> [subject]: bot-style commit of the cask at <version>
   render adhoc "$1" > Casks/claudeglance.rb; git add -A; git commit -qm "${2:-Update claudeglance to $1}"
 }
+bump_formula() { # bump_formula <version> [subject]: bot-style commit of the formula at <version>
+  mkdir -p Formula; render_formula "$1" > Formula/audiobook-fetch.rb; git add -A
+  git commit -qm "${2:-Update audiobook-fetch to $1}"
+}
 verify_head() { git rev-parse HEAD >> "$AP_TOP/verified"; }
 audit() { run "$SCRIPTS/audit-push.sh" "$BASE" HEAD; }
 ap_bot_bumps_pass() {
   cask_repo 1.9; bump 1.9.1; bump 1.10; audit
   check "exit 0" [ $RC -eq 0 ]; check "1.10 > 1.9.1 (sort -V)" has "bot bump to 1.10"
+}
+ap_formula_bumps_pass() {
+  # The first one has no formula in its parent; later ones must raise the version.
+  cask_repo 1.9; bump_formula 0.1.0; bump 1.9.1; bump_formula 0.2.0; audit
+  check "exit 0" [ $RC -eq 0 ]
+  check "names the formula bump" has "audiobook-fetch bot bump to 0.2.0"
+  check "names the cask bump" has "claudeglance bot bump to 1.9.1"
+}
+ap_formula_bump_touching_the_cask_fails() {
+  # One source repo's key must not be able to rewrite the other's file under its own subject.
+  cask_repo 1.0; mkdir -p Formula; render_formula 0.1.0 > Formula/audiobook-fetch.rb; render adhoc 1.1 > Casks/claudeglance.rb
+  git add -A; git commit -qm "Update audiobook-fetch to 0.1.0"; audit
+  check "exit 1" [ $RC -eq 1 ]; check "reason" has "touches more than Formula/audiobook-fetch.rb"
+  cask_repo 1.0; mkdir -p Formula; render_formula 1.1 > Formula/audiobook-fetch.rb
+  git add -A; git commit -qm "Update claudeglance to 1.1"; audit
+  check "the cask subject cannot carry the formula" [ $RC -eq 1 ]
+}
+ap_formula_version_rules() {
+  cask_repo 1.0; bump_formula 0.2.0; bump_formula 0.1.9; audit
+  check "exit 1" [ $RC -eq 1 ]; check "lowered" has "version goes from 0.2.0 to 0.1.9"
+  cask_repo 1.0; bump_formula 0.2.0 "Update audiobook-fetch to 0.3.0"; audit
+  check "exit 1" [ $RC -eq 1 ]; check "mismatch" has "subject says 0.3.0 but the formula says 0.2.0"
+}
+ap_unknown_bot_name_fails() {
+  cask_repo 1.0; mkdir -p Formula; echo x > Formula/other.rb; git add -A; git commit -qm "Update other to 1.0.0"; audit
+  check "exit 1" [ $RC -eq 1 ]; check "reason" has "not a PR merged on GitHub and not a bot bump"
 }
 ap_github_merge_passes() {
   cask_repo 1.0; commit "feat: x" scripts/a.sh; verify_head; audit
@@ -436,6 +517,7 @@ t "state-guard: lists only non-doc paths"         sg_mixed_docs_and_code_lists_o
 t "state-guard: nested README is code"            sg_nested_readme_is_code
 t "state-guard: chore/deps/scope/bang escape"     sg_escape_hatch_chore_deps_scoped_bang
 t "state-guard: bot bump escape"                  sg_escape_hatch_bot_bump
+t "state-guard: formula bump escape"              sg_escape_hatch_formula_bump
 t "state-guard: escape needs every commit"        sg_escape_hatch_needs_every_commit
 t "state-guard: lookalike subjects rejected"      sg_escape_hatch_rejects_lookalikes
 t "state-guard: CI merge ref ignored"             sg_ci_merge_ref_ignored
@@ -447,6 +529,7 @@ t "check-syntax: broken non-last cask fails"      cs_broken_first_file_fails
 t "check-syntax: no casks fails"                  cs_no_casks_fails
 t "check-urls: 200 passes, version expanded"      cu_200_passes_and_expands_version
 t "check-urls: every #{version} expanded"         cu_expands_every_version_placeholder
+t "check-urls: every URL of a formula"            cu_formula_checks_every_url
 t "check-urls: 404 fails"                         cu_404_fails
 t "check-urls: network failure prints 000"        cu_network_failure_prints_000
 t "check-urls: cask without url fails"            cu_any_bad_cask_fails
@@ -463,7 +546,19 @@ t "cask-template: changed field fails"            ct_changed_field_fails
 t "cask-template: bad version/sha fill-ins fail"  ct_bad_fill_ins_fail
 t "cask-template: missing cask fails"             ct_missing_cask_fails
 t "cask-template: auto_updates matches signing"  ct_auto_updates_pairing
+t "formula-template: generated formula passes"    ft_ok
+t "formula-template: generated formula parses"    ft_parses
+t "formula-template: no formula yet passes"       ft_missing_formula_passes
+t "formula-template: changed URL fails"           ft_changed_url_fails
+t "formula-template: shell-outs fail"             ft_shellouts_fail
+t "formula-template: extra or changed line fails" ft_extra_or_changed_lines_fail
+t "formula-template: bad version/sha fails"       ft_bad_fill_ins_fail
+t "formula-template: the real formula matches"    ft_real_formula_matches
 t "audit-push: bot bumps pass (sort -V)"          ap_bot_bumps_pass
+t "audit-push: formula bumps pass"                ap_formula_bumps_pass
+t "audit-push: formula bump touching cask fails"  ap_formula_bump_touching_the_cask_fails
+t "audit-push: formula version rules"             ap_formula_version_rules
+t "audit-push: unknown bot name fails"            ap_unknown_bot_name_fails
 t "audit-push: GitHub-merged commit passes"       ap_github_merge_passes
 t "audit-push: unverified commit fails"           ap_unverified_commit_fails
 t "audit-push: bot touching other files fails"    ap_bot_touching_other_files_fails
