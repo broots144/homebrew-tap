@@ -23,6 +23,8 @@ jobs:
         run: tests/run.sh
       - name: Cask matches the release template
         run: scripts/check-cask-template.sh
+      - name: Formula matches the release template
+        run: scripts/check-formula-template.sh
 
   # Every commit a push adds to main must be a PR merged on GitHub (verified,
   # committed by web-flow) or a well-formed release bot bump that touches only

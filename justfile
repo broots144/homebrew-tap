@@ -9,14 +9,17 @@ check: syntax template url guard test
 
 syntax:
     scripts/check-syntax.sh
+    if [ -d Formula ]; then scripts/check-syntax.sh Formula; fi
 
 # The cask is exactly the release template with a version and sha256 filled in (D-005)
 template:
     scripts/check-cask-template.sh
+    scripts/check-formula-template.sh
 
 # Every cask's download URL for its current version answers 200
 url:
     scripts/check-urls.sh
+    if [ -d Formula ]; then scripts/check-urls.sh Formula; fi
 
 guard:
     scripts/state-guard.sh origin/main

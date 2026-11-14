@@ -11,7 +11,7 @@ code=$(echo "$changed" | grep -Ev '^(LESSONS\.md|ROADMAP\.md|README\.md|docs/)' 
 subjects=$(git log --no-merges --format=%s "$base"..HEAD)
 # A merges-only range has no subjects to vouch for it, so it gets no escape hatch
 # (grep on empty input exits 1, which used to read as "every subject matched").
-if [ -z "$subjects" ] || echo "$subjects" | grep -Evq '^(chore|deps)(\(.+\))?!?:|^Update claudeglance to '; then
+if [ -z "$subjects" ] || echo "$subjects" | grep -Evq '^(chore|deps)(\(.+\))?!?:|^Update (claudeglance|audiobook-fetch) to '; then
   echo "state-guard: these paths changed without a STATE.md update:"
   echo "$code" | sed 's/^/  /'
   echo "Update STATE.md in the same PR, or title every commit chore: / deps:."
