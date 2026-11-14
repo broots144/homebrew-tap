@@ -22,4 +22,3 @@ Homebrew tap `broots144/tap` (public). One cask, `Casks/claudeglance.rb`, the Cl
 - Public repo: never commit personal data (real names, addresses, phone numbers, personal emails). The bot identity is the GitHub noreply address only.
 - Never commit the deploy key or any token. Each private half lives only as the `HOMEBREW_TAP_DEPLOY_KEY` secret of its own source repo (workshop144/claudeglance, broots144/audiobook-fetch).
 - No em dashes or en dashes in the state files.
-- Commit trailers: end commit messages with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` when Claude authored the change.
