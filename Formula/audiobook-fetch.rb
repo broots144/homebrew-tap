@@ -2,28 +2,28 @@
 class AudiobookFetch < Formula
   desc "Turn a list of audiobooks into checked files in a folder"
   homepage "https://github.com/broots144/audiobook-fetch"
-  version "0.1.0"
+  version "0.2.0"
   license "MIT"
 
   on_macos do
     on_arm do
       url "https://github.com/broots144/audiobook-fetch/releases/download/v#{version}/audiobook-fetch_#{version}_darwin_arm64.tar.gz"
-      sha256 "77f6828c497a5681e7369c9263155a87cc05a90c1aa17e30088a252d2cf24089"
+      sha256 "ca4e645030c9c5e03e7ff64277c562e35c578653c380b0650d1a0aa7dca3f576"
     end
     on_intel do
       url "https://github.com/broots144/audiobook-fetch/releases/download/v#{version}/audiobook-fetch_#{version}_darwin_amd64.tar.gz"
-      sha256 "4b849ce62e98c84e52677cd7e33ea31d8db860ca9c322134770fa82230dfb7ac"
+      sha256 "14caaab0b3b9ed16998b483fee6a223678811a4543bf1f8a9066c04d450f7675"
     end
   end
 
   on_linux do
     on_arm do
       url "https://github.com/broots144/audiobook-fetch/releases/download/v#{version}/audiobook-fetch_#{version}_linux_arm64.tar.gz"
-      sha256 "38c8cb4b91a3d4792721ad7c8c98960cbee4552f91900661a056addbe74ddf2e"
+      sha256 "8e0059dd8b51a2506319a2c5efe5d2a4ece0f51f68cf1cf619fd723a2bee7d07"
     end
     on_intel do
       url "https://github.com/broots144/audiobook-fetch/releases/download/v#{version}/audiobook-fetch_#{version}_linux_amd64.tar.gz"
-      sha256 "ed79cf008b95a72d1c9b3170de48c3730ee9e5187ae21bbd234cbf89750e8689"
+      sha256 "04034d62c837926a3862b4dcfa6c9fb8045cde9d2396f44de0a40468e3a4fd5b"
     end
   end
 
